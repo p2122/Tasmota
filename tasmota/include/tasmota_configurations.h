@@ -99,6 +99,7 @@
 #define USE_MGS                                // [I2cDriver17] Enable Xadow and Grove Mutichannel Gas sensor using library Multichannel_Gas_Sensor (+10k code)
 #define USE_SGP30                              // [I2cDriver18] Enable SGP30 sensor (I2C address 0x58) (+1k1 code)
 #define USE_SGP40                              // [I2cDriver69] Enable SGP40 sensor (I2C address 0x59) (+1k4 code)
+//#define USE_SGP4X                              // [I2cDriver82] Enable SGP41 sensor (I2C address 0x59) (+7k2 code)
 #define USE_SEN5X                              // [I2cDriver76] Enable SEN5X sensor (I2C address 0x69) (+3k code)
 //#define USE_SI1145                             // [I2cDriver19] Enable SI1145/46/47 sensor (I2C address 0x60) (+1k code)
 #define USE_LM75AD                             // [I2cDriver20] Enable LM75AD sensor (I2C addresses 0x48 - 0x4F) (+0k5 code)
@@ -106,9 +107,12 @@
 //#define USE_MCP230xx                           // [I2cDriver22] Enable MCP23008/MCP23017 - Must define I2C Address in #define USE_MCP230xx_ADDR below - range 0x20 - 0x27 (+4k7 code)
 //#define USE_MCP23XXX_DRV                       // [I2cDriver77] Enable MCP23xxx support as virtual switch/button/relay (+3k(I2C)/+5k(SPI) code)
 //#define USE_PCA9685                            // [I2cDriver1] Enable PCA9685 I2C HW PWM Driver - Must define I2C Address in #define USE_PCA9685_ADDR below - range 0x40 - 0x47 (+1k4 code)
+//#define USE_PCA9685_V2                         // [I2cDriver1] Enable PCA9685 I2C HW PWM Driver - Must define I2C Address in #define USE_PCA9685_ADDR below - range 0x40 - 0x47 (+3k4 code)
 //#define USE_MPR121                             // [I2cDriver23] Enable MPR121 controller (I2C addresses 0x5A, 0x5B, 0x5C and 0x5D) in input mode for touch buttons (+1k3 code)
 #define USE_CCS811                             // [I2cDriver24] Enable CCS811 sensor (I2C address 0x5A) (+2k2 code)
 //#define USE_CCS811_V2                          // [I2cDriver24] Enable CCS811 sensor (I2C addresses 0x5A and 0x5B) (+2k8 code)
+//#define USE_ENS16x                             // [I2cDriver85] Enable ENS160 or ENS161 sensor (I2C addresses 0x52 and 0x53) (+3k1 of code and 524 of RAM)
+//#define USE_ENS210                             // [I2cDriver86] Enable ENS210 sensor (I2C addresses 0x43 and 0x44) (+4k0 of code and 944 of RAM)
 //#define USE_MPU6050                            // [I2cDriver25] Enable MPU6050 sensor (I2C address 0x68 AD0 low or 0x69 AD0 high) (+3K3 of code and 188 Bytes of RAM)
 //#define USE_MGC3130                            // [I2cDriver27] Enable MGC3130 Electric Field Effect Sensor (I2C address 0x42) (+2k7 code, 0k3 mem)
 //#define USE_MAX44009                           // [I2cDriver28] Enable MAX44009 Ambient Light sensor (I2C addresses 0x4A and 0x4B) (+0k8 code)
@@ -164,6 +168,12 @@
 //#define USE_LUXV30B                            // [I2CDriver70] Enable RFRobot SEN0390 LuxV30b ambient light sensor (I2C address 0x4A) (+0k5 code)
 //#define USE_PMSA003I                           // [I2cDriver78] Enable PMSA003I Air Quality Sensor (I2C address 0x12) (+1k8 code)
 //#define USE_GDK101                             // [I2cDriver79] Enable GDK101 sensor (I2C addresses 0x18 - 0x1B) (+1k2 code)
+//#define USE_TC74                               // [I2cDriver80] Enable TC74 sensor (I2C addresses 0x48 - 0x4F) (+1k code)
+//#define USE_PCA9557                            // [I2cDriver81] Enable PCA9557 8-bit I/O Expander (I2C addresses 0x18 - 0x1F) (+2k5 code)
+//#define USE_MAX17043                           // [I2cDriver83] Enable MAX17043 fuel-gauge systems Lipo batteries sensor (I2C address 0x36) (+0k9 code)
+//#define USE_AMSX915                            // [I2CDriver86] Enable AMS5915/AMS6915 pressure/temperature sensor (+1k2 code)
+//#define USE_SPL06_007                          // [I2cDriver87] Enable SPL06_007 pressure and temperature sensor (I2C addresses 0x76) (+2k5 code)
+//#define USE_MS5837                             // [I2cDriver91] Enable MS5837 sensor (I2C address 0x76) (+2k7 code)
 
 //#define USE_RTC_CHIPS                          // Enable RTC chip support and NTP server - Select only one
 //  #define USE_DS3231                           // [I2cDriver26] Enable DS3231 RTC (I2C address 0x68) (+1k2 code)
@@ -347,24 +357,28 @@
   #define USE_DISPLAY_TM1637                     // [DisplayModel 15] Enable TM1637 module
   #define USE_DISPLAY_MAX7219                    // [DisplayModel 19] Enable MAX7219 7-segment module
 
+#define USE_TM1638                               // Add support for TM1638 switches copying Switch1 .. Switch8 (+1k code)
+
 #define USE_I2C                                  // I2C using library wire (+10k code, 0k2 mem, 124 iram)
   #define USE_DISPLAY_MODES1TO5                  // Enable display mode 1 to 5 in addition to mode 0
   #define USE_DISPLAY_LCD                        // [DisplayModel 1] Enable Lcd display (I2C addresses 0x27 and 0x3F) (+6k code)
-  #define USE_DISPLAY_SSD1306                    // [DisplayModel 2] Enable SSD1306 Oled 128x64 display (I2C addresses 0x3C and 0x3D) (+16k code)
+  // REMOVED - #define USE_DISPLAY_SSD1306                    // [DisplayModel 2] Enable SSD1306 Oled 128x64 display (I2C addresses 0x3C and 0x3D) (+16k code)
   #define USE_DISPLAY_MATRIX                     // [DisplayModel 3] Enable 8x8 Matrix display (I2C adresseses see below) (+11k code)
   #define USE_DISPLAY_SEVENSEG                   // [DisplayModel 11] [I2cDriver47] Enable sevenseg display (I2C addresses 0x70 - 0x77) (<+11k code)
-  #define USE_DISPLAY_SH1106                     // [DisplayModel 7] Enable SH1106 Oled 128x64 display (I2C addresses 0x3C and 0x3D)
+  // REMOVED - #define USE_DISPLAY_SH1106                     // [DisplayModel 7] Enable SH1106 Oled 128x64 display (I2C addresses 0x3C and 0x3D)
 //  #define USE_DISPLAY_TM1650                     // [DisplayModel 20] [I2cDriver74] Enable TM1650 display (I2C addresses 0x24 - 0x27 and 0x34 - 0x37)
 
 #define USE_SPI                                  // Hardware SPI using GPIO12(MISO), GPIO13(MOSI) and GPIO14(CLK) in addition to two user selectable GPIOs(CS and DC)
-  #define USE_DISPLAY_ILI9341                    // [DisplayModel 4] Enable ILI9341 Tft 480x320 display (+19k code)
-  #define USE_DISPLAY_EPAPER_29                  // [DisplayModel 5] Enable e-paper 2.9 inch display (+19k code)
-  #define USE_DISPLAY_EPAPER_42                  // [DisplayModel 6] Enable e-paper 4.2 inch display
+  // #define USE_DISPLAY_ILI9341                    // [DisplayModel 4] Enable ILI9341 Tft 480x320 display (+19k code)
+  // #define USE_DISPLAY_EPAPER_29                  // [DisplayModel 5] Enable e-paper 2.9 inch display (+19k code)
+  // #define USE_DISPLAY_EPAPER_42                  // [DisplayModel 6] Enable e-paper 4.2 inch display
   // #define USE_DISPLAY_ILI9488                    // [DisplayModel 8]
-  #define USE_DISPLAY_SSD1351                    // [DisplayModel 9]
-  #define USE_DISPLAY_RA8876                     // [DisplayModel 10]
-  #define USE_DISPLAY_ST7789                     // [DisplayModel 12] Enable ST7789 module
-  #define USE_DISPLAY_SSD1331                    // [DisplayModel 14] Enable SSD1331 module
+  // #define USE_DISPLAY_SSD1351                    // [DisplayModel 9]
+  // #define USE_DISPLAY_RA8876                     // [DisplayModel 10]
+  // REMOVED - #define USE_DISPLAY_ST7789                     // [DisplayModel 12] Enable ST7789 module
+
+#define USE_UNIVERSAL_DISPLAY
+#define USE_UNIVERSAL_TOUCH
 
 #undef DEBUG_THEO                                // Disable debug code
 #undef USE_DEBUG_DRIVER                          // Disable debug code
@@ -683,15 +697,13 @@
   #define CODE_IMAGE_STR "lite"
 #endif
 
-#undef APP_SLEEP
-#define APP_SLEEP 1                              // Default to sleep = 1 for FIRMWARE_LITE
-
 #undef USE_ARDUINO_OTA                           // Disable support for Arduino OTA
 #undef USE_DOMOTICZ                              // Disable Domoticz
 #undef USE_HOME_ASSISTANT                        // Disable Home Assistant
 #define USE_TASMOTA_DISCOVERY                    // Enable Tasmota Discovery support (+2k code)
 #undef USE_MQTT_TLS                              // Disable TLS support won't work as the MQTTHost is not set
 #undef USE_KNX                                   // Disable KNX IP Protocol Support
+#undef USE_DALI                                  // Disable support for DALI gateway (+5k code)
 //#undef USE_WEBSERVER                             // Disable Webserver
 #undef USE_ENHANCED_GUI_WIFI_SCAN                // Disable wifi scan output with BSSID (+0k5 code)
 #undef USE_WEBSEND_RESPONSE                      // Disable command WebSend response message (+1k code)
@@ -819,7 +831,7 @@
 #undef USE_HRE                                   // Disable support for Badger HR-E Water Meter (+1k4 code)
 #undef USE_A4988_STEPPER                         // Disable support for A4988_Stepper
 #undef USE_PROMETHEUS                            // Disable support for https://prometheus.io/ metrics exporting over HTTP /metrics endpoint
-#undef USE_NEOPOOL                               // Disable support for Sugar Valley NeoPool Controller - also known under brands Hidrolife, Aquascenic, Oxilife, Bionet, Hidroniser, UVScenic, Station, Brilix, Bayrol and Hay (+6k flash, +60 mem)
+#undef USE_NEOPOOL                               // Disable support for Sugar Valley NeoPool Controller - also known under brands Hidrolife, Aquascenic, Oxilife, Bionet, Hidroniser, UVScenic, Station, Brilix, Bayrol and Hay (+14k flash, +120 mem)
 #undef USE_THERMOSTAT                            // Disable support for Thermostat
 #undef DEBUG_THEO                                // Disable debug code
 #undef USE_DEBUG_DRIVER                          // Disable debug code
@@ -857,7 +869,9 @@
 #undef USE_TELEGRAM                              // Disable support for Telegram protocol (+49k code, +7.0k mem and +4.8k additional during connection handshake)
 //#undef USE_MQTT_TLS                              // Disable TLS support won't work as the MQTTHost is not set
 #undef USE_KNX                                   // Disable KNX IP Protocol Support
+#undef USE_DALI                                  // Disable support for DALI gateway (+5k code)
 //#undef USE_WEBSERVER                             // Disable Webserver
+#undef USE_GPIO_VIEWER                           // Disable GPIO Viewer to see realtime GPIO states (+5k6 code)
 #undef USE_ENHANCED_GUI_WIFI_SCAN                // Disable wifi scan output with BSSID (+0k5 code)
 #undef USE_WEBSEND_RESPONSE                      // Disable command WebSend response message (+1k code)
 #undef USE_EMULATION                             // Disable Wemo or Hue emulation
@@ -1018,21 +1032,23 @@
   #define SEND_PRONTO false                      // Exclude PRONTO protocol
 #else
   #define _IR_ENABLE_DEFAULT_ false              // disable all protocols by default
-  // below are the default IR protocols
-  #define DECODE_HASH true
-  #ifdef USE_IR_SEND_NEC
-    #define SEND_NEC   true                      // Support IRsend NEC protocol
-    #define DECODE_NEC true                      // Support IRreceive NEC protocol
-  #endif
-  #ifdef USE_IR_SEND_RC5
-    #define SEND_RC5   true                      // Support IRsend Philips RC5 protocol
-    #define DECODE_RC5 true                      // Support IRreceive Philips RC5 protocol
-  #endif
-  #ifdef USE_IR_SEND_RC6
-    #define SEND_RC6   true                      // Support IRsend Philips RC6 protocol
-    #define DECODE_RC6 true                      // Support IRreceive Philips RC6 protocol
-  #endif
-#endif
+  #ifdef USE_IR_REMOTE
+    // below are the default IR protocols
+    #define DECODE_HASH true
+    #ifdef USE_IR_SEND_NEC
+      #define SEND_NEC   true                    // Support IRsend NEC protocol
+      #define DECODE_NEC true                    // Support IRreceive NEC protocol
+    #endif // USE_IR_SEND_NEC
+    #ifdef USE_IR_SEND_RC5
+      #define SEND_RC5   true                    // Support IRsend Philips RC5 protocol
+      #define DECODE_RC5 true                    // Support IRreceive Philips RC5 protocol
+    #endif // USE_IR_SEND_RC5
+    #ifdef USE_IR_SEND_RC6
+      #define SEND_RC6   true                    // Support IRsend Philips RC6 protocol
+      #define DECODE_RC6 true                    // Support IRreceive Philips RC6 protocol
+    #endif // USE_IR_SEND_RC6
+  #endif // USE_IR_REMOTE
+#endif // USE_IR_REMOTE_FULL
 
 /*********************************************************************************************\
  * Mandatory defines satisfying disabled defines
@@ -1043,6 +1059,17 @@
     #define USE_UFILESYS
       #define GUI_TRASH_FILE
       #define GUI_EDIT_FILE
+    #ifdef ESP8266_4M
+      #ifndef USE_FTP
+        #define USE_FTP
+      #endif
+      #ifndef USER_FTP
+        #define USER_FTP "user"
+      #endif
+      #ifndef PW_FTP
+        #define PW_FTP "pass"
+      #endif
+    #endif // ESP8266_4M
     #define USE_SPI
     #define USE_SDCARD
     #define USE_PING

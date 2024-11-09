@@ -300,8 +300,8 @@ class Partition_otadata
   #- load otadata from SPI Flash -#
   def load()
     import flash
-    var otadata0 = flash.read(0xE000, 32)
-    var otadata1 = flash.read(0xF000, 32)
+    var otadata0 = flash.read(self.offset, 32)
+    var otadata1 = flash.read(self.offset + 0x1000, 32)
     self.seq0 = otadata0.get(0, 4)   #- ota_seq for block 1 -#
     self.seq1 = otadata1.get(0, 4)   #- ota_seq for block 2 -#
     var valid0 = otadata0.get(28, 4) == self.crc32_ota_seq(self.seq0) #- is CRC32 valid? -#
@@ -591,7 +591,6 @@ class Partition
       var fs_slot = self.slots[-1]
       fs_slot.sz += unallocated * 1024
       self.save()
-      self.invalidate_spiffs()   # erase SPIFFS or data is corrupt
 
       # restart
       tasmota.global.restart_flag = 2
@@ -607,13 +606,13 @@ class Partition
     import flash
     #- we expect the SPIFFS partition to be the last one -#
     var spiffs = self.slots[-1]
-    if !spiffs.is_spiffs() raise 'value_error', 'No SPIFFS partition found' end
+    if !spiffs.is_spiffs() raise 'value_error', 'No FS partition found' end
 
     var b = bytes("00")  #- flash memory: we can turn bits from '1' to '0' -#
     flash.write(spiffs.start         , b)    #- block #0 -#
     flash.write(spiffs.start + 0x1000, b)    #- block #1 -#
   end
-
+  
   # switch to safeboot `factory` partition
   def switch_factory(force_ota)
     import flash

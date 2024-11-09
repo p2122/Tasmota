@@ -41,6 +41,7 @@
  * IfxSensor   - Set Influxdb sensor logging off (0) or on (1)
  * IfxRP       - Set Influxdb retention policy
  * IfxLog      - Set Influxdb logging level (4 = default)
+ * IfxFeed     - Feed Influxdb with JSON data
  *
  * The following triggers result in automatic influxdb numeric feeds without appended time:
  * - this driver initiated state message
@@ -118,15 +119,15 @@ String InfluxDbAuth(void) {
 }
 
 bool InfluxDbHostByName(void) {
-  IPAddress ifdb_ip;
-  if (!WifiHostByName(SettingsText(SET_INFLUXDB_HOST), ifdb_ip)) {
-    AddLog(LOG_LEVEL_DEBUG, PSTR("IFX: Invalid ifxhost"));
-    return false;
+  String host = SettingsText(SET_INFLUXDB_HOST);
+  IFDB._serverUrl = "";
+  if (strncmp(host.c_str(),"http",4))
+    IFDB._serverUrl += "http://";
+  IFDB._serverUrl += host;
+  if (Settings->influxdb_port) {
+    IFDB._serverUrl += ":";
+    IFDB._serverUrl += Settings->influxdb_port;
   }
-  IFDB._serverUrl = "http://";
-  IFDB._serverUrl += ifdb_ip.toString();
-  IFDB._serverUrl += ":";
-  IFDB._serverUrl += Settings->influxdb_port;
   return true;
 }
 
@@ -206,7 +207,7 @@ void InfluxDbAfterRequest(int expectedStatusCode, bool modifyLastConnStatus) {
       IFDB._lastErrorResponse = IFDBhttpClient->errorToString(IFDB._lastStatusCode);
     }
     IFDB._lastErrorResponse.trim();  // Remove trailing \n
-    AddLog(LOG_LEVEL_INFO, PSTR("IFX: Error %s"), IFDB._lastErrorResponse.c_str());
+    AddLog(LOG_LEVEL_INFO, PSTR("IFX: Error '%s'"), IFDB._lastErrorResponse.c_str());
   } else {
     AddLog(IFDB.log_level, PSTR("IFX: Done"));
   }
@@ -274,6 +275,7 @@ int InfluxDbPostData(const char *data) {
     IFDBhttpClient->addHeader(F("Content-Type"), F("text/plain"));
     InfluxDbBeforeRequest();
     IFDB._lastStatusCode = IFDBhttpClient->POST((uint8_t*)data, strlen(data));
+    AddLog(IFDB.log_level, PSTR("IFX: POST statusCode %d"), IFDB._lastStatusCode);
     InfluxDbAfterRequest(204, true);
     IFDBhttpClient->end();
   }
@@ -475,6 +477,7 @@ void InfluxDbLoop(void) {
 #define D_CMND_INFLUXDBPERIOD   "Period"
 #define D_CMND_INFLUXDBSENSOR   "Sensor"
 #define D_CMND_INFLUXDBRP       "RP"
+#define D_CMND_INFLUXDBFEED     "Feed"
 
 const char kInfluxDbCommands[] PROGMEM = D_PRFX_INFLUXDB "|"  // Prefix
   "|" D_CMND_INFLUXDBLOG "|"
@@ -482,7 +485,8 @@ const char kInfluxDbCommands[] PROGMEM = D_PRFX_INFLUXDB "|"  // Prefix
   D_CMND_INFLUXDBUSER "|" D_CMND_INFLUXDBORG "|"
   D_CMND_INFLUXDBPASSWORD "|" D_CMND_INFLUXDBTOKEN "|"
   D_CMND_INFLUXDBDATABASE "|" D_CMND_INFLUXDBBUCKET "|"
-  D_CMND_INFLUXDBPERIOD "|" D_CMND_INFLUXDBSENSOR "|" D_CMND_INFLUXDBRP;
+  D_CMND_INFLUXDBPERIOD "|" D_CMND_INFLUXDBSENSOR "|"
+  D_CMND_INFLUXDBRP "|" D_CMND_INFLUXDBFEED;
 
 void (* const InfluxCommand[])(void) PROGMEM = {
   &CmndInfluxDbState, &CmndInfluxDbLog,
@@ -490,7 +494,8 @@ void (* const InfluxCommand[])(void) PROGMEM = {
   &CmndInfluxDbUser, &CmndInfluxDbUser,
   &CmndInfluxDbPassword, &CmndInfluxDbPassword,
   &CmndInfluxDbDatabase, &CmndInfluxDbDatabase,
-  &CmndInfluxDbPeriod, &CmndInfluxDbSensor, &CmndInfluxDbRP };
+  &CmndInfluxDbPeriod, &CmndInfluxDbSensor,
+  &CmndInfluxDbRP, &CmndInfluxDbFeed };
 
 void InfluxDbReinit(void) {
   IFDB.init = false;
@@ -598,6 +603,15 @@ void CmndInfluxDbPeriod(void) {
   ResponseCmndNumber(Settings->influxdb_period);
 }
 
+void CmndInfluxDbFeed(void) {
+  // IfxFeed {"Data":10}
+  if ((XdrvMailbox.data_len > 0) && ('{' == XdrvMailbox.data[0])) {
+    Response_P(XdrvMailbox.data);
+    InfluxDbProcessJson();
+    ResponseCmndDone();
+  }
+}
+
 /*********************************************************************************************\
  * Interface
 \*********************************************************************************************/
@@ -624,6 +638,9 @@ bool Xdrv59(uint32_t function) {
     switch (function) {
       case FUNC_EVERY_SECOND:
         InfluxDbLoop();
+        break;
+      case FUNC_ACTIVE:
+        result = true;
         break;
     }
   }

@@ -507,10 +507,14 @@ BERRY_API bvm* be_vm_new(void)
     vm->counter_call = 0;
     vm->counter_get = 0;
     vm->counter_set = 0;
+    vm->counter_get_global = 0;
     vm->counter_try = 0;
     vm->counter_exc = 0;
     vm->counter_gc_kept = 0;
     vm->counter_gc_freed = 0;
+    vm->counter_mem_alloc = 0;
+    vm->counter_mem_free = 0;
+    vm->counter_mem_realloc = 0;
 #endif
     return vm;
 }
@@ -579,6 +583,9 @@ newframe: /* a new call frame */
             dispatch();
         }
         opcase(GETNGBL): {  /* get Global by name */
+#if BE_USE_PERF_COUNTERS
+            vm->counter_get_global++;
+#endif
             bvalue *v = RA();
             bvalue *b = RKB();
             if (var_isstr(b)) {
@@ -664,8 +671,17 @@ newframe: /* a new call frame */
             if (var_isint(a) && var_isint(b)) {
                 var_setint(dst, ibinop(-, a, b));
             } else if (var_isnumber(a) && var_isnumber(b)) {
+#if CONFIG_IDF_TARGET_ESP32    /* when running on ESP32 in IRAM, there is a bug in early chip revision */
+                union bvaldata x, y;        // TASMOTA workaround for ESP32 rev0 bug
+                x.i = a->v.i;
+                if (var_isint(a)) { x.r = (breal) x.i; }
+                y.i = b->v.i;
+                if (var_isint(b)) { y.r = (breal) y.i; }
+                var_setreal(dst, x.r - y.r);
+#else  // CONFIG_IDF_TARGET_ESP32
                 breal x = var2real(a), y = var2real(b);
                 var_setreal(dst, x - y);
+#endif // CONFIG_IDF_TARGET_ESP32
             } else if (var_isinstance(a)) {
                 ins_binop(vm, "-", ins);
             } else {
@@ -678,8 +694,17 @@ newframe: /* a new call frame */
             if (var_isint(a) && var_isint(b)) {
                 var_setint(dst, ibinop(*, a, b));
             } else if (var_isnumber(a) && var_isnumber(b)) {
+#if CONFIG_IDF_TARGET_ESP32    /* when running on ESP32 in IRAM, there is a bug in early chip revision */
+                union bvaldata x, y;        // TASMOTA workaround for ESP32 rev0 bug
+                x.i = a->v.i;
+                if (var_isint(a)) { x.r = (breal) x.i; }
+                y.i = b->v.i;
+                if (var_isint(b)) { y.r = (breal) y.i; }
+                var_setreal(dst, x.r * y.r);
+#else  // CONFIG_IDF_TARGET_ESP32
                 breal x = var2real(a), y = var2real(b);
                 var_setreal(dst, x * y);
+#endif // CONFIG_IDF_TARGET_ESP32
             } else if (var_isinstance(a)) {
                 ins_binop(vm, "*", ins);
             } else {
@@ -697,11 +722,21 @@ newframe: /* a new call frame */
                     var_setint(dst, x / y);
                 }
             } else if (var_isnumber(a) && var_isnumber(b)) {
+#if CONFIG_IDF_TARGET_ESP32    /* when running on ESP32 in IRAM, there is a bug in early chip revision */
+                union bvaldata x0, y0;        // TASMOTA workaround for ESP32 rev0 bug
+                x0.i = a->v.i;
+                if (var_isint(a)) { x0.r = (breal) x0.i; }
+                y0.i = b->v.i;
+                if (var_isint(b)) { y0.r = (breal) y0.i; }
+                breal x = x0.r, y = y0.r;
+#else  // CONFIG_IDF_TARGET_ESP32
                 breal x = var2real(a), y = var2real(b);
+#endif // CONFIG_IDF_TARGET_ESP32
                 if (y == cast(breal, 0)) {
                     vm_error(vm, "divzero_error", "division by zero");
+                } else {
+                    var_setreal(dst, x / y);
                 }
-                var_setreal(dst, x / y);
             } else if (var_isinstance(a)) {
                 ins_binop(vm, "/", ins);
             } else {
@@ -712,9 +747,28 @@ newframe: /* a new call frame */
         opcase(MOD): {
             bvalue *dst = RA(), *a = RKB(), *b = RKC();
             if (var_isint(a) && var_isint(b)) {
-                var_setint(dst, ibinop(%, a, b));
+                bint x = var_toint(a), y = var_toint(b);
+                if (y == 0) {
+                    vm_error(vm, "divzero_error", "division by zero");
+                } else {
+                    var_setint(dst, x % y);
+                }
             } else if (var_isnumber(a) && var_isnumber(b)) {
-                var_setreal(dst, mathfunc(fmod)(var_toreal(a), var_toreal(b)));
+#if CONFIG_IDF_TARGET_ESP32    /* when running on ESP32 in IRAM, there is a bug in early chip revision */
+                union bvaldata x0, y0;        // TASMOTA workaround for ESP32 rev0 bug
+                x0.i = a->v.i;
+                if (var_isint(a)) { x0.r = (breal) x0.i; }
+                y0.i = b->v.i;
+                if (var_isint(b)) { y0.r = (breal) y0.i; }
+                breal x = x0.r, y = y0.r;
+#else
+                breal x = var2real(a), y = var2real(b);
+#endif
+                if (y == cast(breal, 0)) {
+                    vm_error(vm, "divzero_error", "division by zero");
+                } else {
+                    var_setreal(dst, mathfunc(fmod)(x, y));
+                }
             } else if (var_isinstance(a)) {
                 ins_binop(vm, "%", ins);
             } else {
@@ -915,7 +969,7 @@ newframe: /* a new call frame */
                     }
                 } else if (var_isclass(a)) {
                     /* in this case we have a class in a static or non-static member */
-                    /* it's always treated like a statif function */
+                    /* it's always treated like a static function */
                     a[1] = result;
                     var_settype(a, NOT_METHOD);
                 } else {

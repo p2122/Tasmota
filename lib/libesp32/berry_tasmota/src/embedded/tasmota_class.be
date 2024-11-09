@@ -30,12 +30,7 @@ class Tasmota
       self.settings = ctypes_bytes_dyn(introspect.toptr(settings_addr), self._settings_def)
     end
     self.wd = ""
-    self._debug_present = false
-    try
-      import debug
-      self._debug_present = true
-    except ..
-    end
+    self._debug_present = global.contains("debug")
     # declare `UrlFetch` command
     self.add_cmd('UrlFetch', def (cmd, idx, payload, payload_json) self.urlfetch_cmd(cmd, idx, payload, payload_json) end)
   end
@@ -64,6 +59,19 @@ class Tasmota
     end
   end
 
+  # find a string in a list, case insensitive
+  def find_list_i(l, vali)
+    import string
+    var idx = 0
+    var valu = string.toupper(vali)
+    while idx < size(l)
+      if string.toupper(l[idx]) == valu
+        return idx
+      end
+      idx += 1
+    end
+    return nil
+  end
 
   # split the item when there is an operator, returns a list of (left,op,right)
   #-
@@ -85,8 +93,8 @@ class Tasmota
   # Rules
   def add_rule(pat, f, id)
     self.check_not_method(f)
-    if !self._rules
-      self._rules=[]
+    if self._rules == nil
+      self._rules = []
     end
     if type(f) == 'function'
       self._rules.push(Trigger(self.Rule_Matcher.parse(pat), f, id))
@@ -186,7 +194,9 @@ class Tasmota
 
   def set_timer(delay,f,id)
     self.check_not_method(f)
-    if !self._timers self._timers=[] end
+    if self._timers == nil
+      self._timers=[]
+    end
     self._timers.push(Trigger(self.millis(delay),f,id))
   end
 
@@ -245,7 +255,9 @@ class Tasmota
   # crontab style recurring events
   def add_cron(pattern,f,id)
     self.check_not_method(f)
-    if !self._crons self._crons=[] end
+    if self._crons == nil
+      self._crons=[]
+    end
 
     var cron_obj = ccronexpr(str(pattern))    # can fail, throwing an exception
     var next_time = cron_obj.next()
@@ -285,8 +297,8 @@ class Tasmota
   # Add command to list
   def add_cmd(c,f)
     self.check_not_method(f)
-    if !self._ccmd
-      self._ccmd={}
+    if self._ccmd == nil
+      self._ccmd = {}
     end
     if type(f) == 'function'
       self._ccmd[c]=f
@@ -340,7 +352,55 @@ class Tasmota
     return format("%04d-%02d-%02dT%02d:%02d:%02d", tm['year'], tm['month'], tm['day'], tm['hour'], tm['min'], tm['sec'])
   end
 
-  def load(f)
+  # takes a .be file and compile to .bec file with the same name
+  #    tasmota.compile("autoexec.be")      -- compiles autoexec.be to autoexec.bec
+  #
+  # Returns 'true' if succesful of 'false' if file is not found or corrupt
+  def compile(f_name)
+    import string
+    if !string.endswith(f_name, ".be")
+      print(f"BRY: file '{f_name}' does not have '.be' extension")
+      return false
+    end
+
+    if string.find(f_name, "#") > 0
+      print(f"BRY: cannot compile file in read-only archive")
+      return false
+    end
+
+    # compile in-memory
+    var compiled_code
+    try
+      compiled_code = compile(f_name, 'file')
+      if (compiled_code == nil)
+        print(f"BRY: empty compiled file")
+        return false
+      end
+    except .. as e, m
+      print(f"BRY: failed to load '{f_name}' ({e} - {m})")
+      return false
+    end
+    
+    # save to .bec file
+    var f_name_bec = f_name + "c"
+    try
+      self.save(f_name_bec, compiled_code)
+    except .. as e
+      print(format('BRY: could not save compiled file %s (%s)',f_name_bec,e))
+      return false
+    end
+
+    return true
+  end
+
+  # takes file name with or without suffix:
+  #    load("autoexec.be")        -- loads file from .be or .bec if .be is not here, remove .bec if .be exists
+  #    load("autoexec")           -- same as above
+  #    load("autoexec.bec")       -- load only .bec file and ignore .be
+  #    load("app.tapp#module.be") -- loads from tapp arhive
+  #
+  # Returns 'true' if succesful of 'false' if file is not found or corrupt
+  def load(f_name)
     # embedded functions
     # puth_path: adds the current archive to sys.path
     def push_path(p)
@@ -375,7 +435,7 @@ class Tasmota
         f.close()
       except .. as e
         if f != nil     f.close() end
-        print(format('BRY: failed to load compiled \'%s\' (%s)',fname_bec,e))
+        print(f"BRY: failed to load compiled '{fname_bec}' ({e})")
       end
       return nil
     end
@@ -397,7 +457,7 @@ class Tasmota
         var compiled = compile(f_name, 'file')
         return compiled
       except .. as e, m
-        print(format('BRY: failed to load \'%s\' (%s - %s)',f_name,e,m))
+        print(f"BRY: failed to load '{f_name}' ({e} - {m})")
       end
       return nil
     end
@@ -410,7 +470,11 @@ class Tasmota
           compiled_code()
           return true
         except .. as e, m
-          print(format("BRY: failed to run compiled code '%s' - %s", e, m))
+          print(f"BRY: failed to run compiled code ({e} - {m})")
+          if self._debug_present
+            import debug
+            debug.traceback()
+          end
         end
       end
       return false
@@ -420,51 +484,54 @@ class Tasmota
     import path
 
     # fail if empty string
-    if size(f) == 0 return false end
-    # Ex: f = 'app.zip#autoexec'
+    if size(f_name) == 0 return false end
+    # Ex: f_name = 'app.zip#autoexec'
 
     # add leading '/' if absent
-    if f[0] != '/'   f = '/' + f end
-    # Ex: f = '/app.zip#autoexec'
+    if !string.startswith(f_name, '/')   f_name = '/' + f_name   end
+    # Ex: f_name = '/app.zip#autoexec'
 
-    var f_items = string.split(f, '#')
-    var f_prefix = f_items[0]
-    var f_suffix = f_items[-1]          # last token
-    var f_archive = size(f_items) > 1   # is the file in an archive
+    var f_find_hash = string.find(f_name, '#')
+    var f_archive = (f_find_hash > 0)                     # is the file in an archive
+    var f_prefix = f_archive ? f_name[0..f_find_hash - 1] : f_name
+    var f_suffix = f_archive ? f_name[f_find_hash + 1 ..] : f_name  # last token
 
     # if no dot, add the default '.be' extension
     if string.find(f_suffix, '.') < 0   # does the final file has a '.'
-      f += ".be"
+      f_name += ".be"
       f_suffix += ".be"
     end
-    # Ex: f = '/app.zip#autoexec.be'
+    # Ex: f_name = '/app.zip#autoexec.be'
 
     # is the suffix .be or .bec ?
-    var suffix_be  = f_suffix[-3..-1] == '.be'
-    var suffix_bec = f_suffix[-4..-1] == '.bec'
-    # Ex: f = '/app.zip#autoexec.be', f_suffix = 'autoexec.be', suffix_be = true, suffix_bec = false
+    var suffix_be  = string.endswith(f_suffix, '.be')
+    var suffix_bec = string.endswith(f_suffix, '.bec')
+    var f_name_bec = suffix_bec ? f_name : f_name + "c"      # f_name_bec holds the bec version of the filename
+    # Ex: f_name = '/app.zip#autoexec.be', f_suffix = 'autoexec.be', suffix_be = true, suffix_bec = false
 
     # check that the file ends with '.be' of '.bec'
     if !suffix_be && !suffix_bec
-      raise "io_error", "file extension is not '.be' or '.bec'"
+      print("BRY: file extension is not '.be' nor '.bec'")
+      return false
     end
 
-    # get the last_modified time of the file or archive, returns `nil` if the file does not exist
-    var f_time = path.last_modified(f)
-    var f_name_bec = suffix_bec ? f : f + "c"      # f_name_bec holds the bec version of the filename
-
-    if suffix_bec
-      if f_time == nil  return false end      # file requested is .bec but does not exist, fail
-      # from now, .bec file does exist
-    else
-      var f_time_bec = path.last_modified(f_name_bec) # timestamp for .bec bytecode, nil if does not exist
-      if f_time == nil && f_time_bec == nil  return false end   # abort if neither .be nor .bec file exist
-      if f_time_bec != nil && (f_time == nil || f_time_bec >= f_time)
-        # bytecode exists and is more recent than berry source, use bytecode
-        ##### temporarily disable loading from bec file
-        suffix_bec = true
+    var use_bec = false         # if 'true' load .bec file, if 'false' use .be file
+    if suffix_bec       # we accept only .bec file, thys ignore .be
+      if !path.exists(f_name_bec)
+        return false            # file does not exist
       end
-      # print("f_time",f_time,"f_time_bec",f_time_bec,"suffix_bec",suffix_bec)
+      use_bec = true
+    else                        # suffix is .be so we can use .be or .bec
+      if path.exists(f_name)
+        # in such case remove .bec file if it exists to avoid confusion with obsolete version
+        if path.exists(f_name_bec)
+          try_remove_file(f_name_bec)
+        end
+      elif path.exists(f_name_bec)
+        use_bec = true
+      else
+        return false            # file does not exist
+      end
     end
 
     # recall the working directory
@@ -477,16 +544,16 @@ class Tasmota
 
     # try to load code into `compiled_code`, or `nil` if didn't succeed
     var compiled_code
-    if suffix_bec     # try the .bec version
+    if use_bec     # try the .bec version
       # in this section we try to load the pre-compiled bytecode first
       # (we already know that the file exists)
       var bec_version = try_get_bec_version(f_name_bec)
       var version_ok = true
       if bec_version == nil
-        print(format('BRY: corrupt bytecode \'%s\'',f_name_bec))
+        print(f"BRY: corrupt bytecode '{f_name_bec}'")
         version_ok = false
       elif bec_version != 0x04          # -- this is the currenlty supported version
-        print(format('BRY: bytecode has wrong version \'%s\' (%i)',f_name_bec,bec_version))
+        print(f"BRY: bytecode has wrong version '{f_name_bec}' ({bec_version})")
         version_ok = false
       end
 
@@ -496,25 +563,15 @@ class Tasmota
 
       if compiled_code == nil         # bytecode is bad, try to delete it and fallback
         try_remove_file(f_name_bec)
-        suffix_bec = false
+        use_bec = false
       end
     end
 
-    if suffix_be && compiled_code == nil
+    if !use_bec
       # the pre-compiled is absent to failed, load the be file instead
-      compiled_code = try_compile(f)
+      compiled_code = try_compile(f_name)
     end
 
-    # save the compiled bytecode unless it's an archive
-    # print("compiled_code",compiled_code,"suffix_be",suffix_be,"suffix_bec",suffix_bec,"archive",f_archive,"f_name_bec",f_name_bec)
-    if compiled_code != nil && !suffix_bec && !f_archive
-      # try to save the pre-compiled version
-      try
-        self.save(f_name_bec, compiled_code)
-      except .. as e
-        print(format('BRY: could not save compiled file %s (%s)',f_name_bec,e))
-      end
-    end
     # call the compiled code
     var run_ok = try_run_compiled(compiled_code)
     # call successfuls
@@ -536,8 +593,7 @@ class Tasmota
 
     # iterate and call each closure
     var i = 0
-    var sz = size(fl)
-    while i < sz
+    while i < size(fl)
       # note: this is not guarded in try/except for performance reasons. The inner function must not raise exceptions
       fl[i]()
       i += 1
@@ -546,7 +602,9 @@ class Tasmota
 
   def add_fast_loop(cl)
     self.check_not_method(cl)
-    if !self._fl  self._fl = [] end
+    if self._fl == nil
+      self._fl = []
+    end
     if type(cl) != 'function' raise "value_error", "argument must be a function" end
     self.global.fast_loop_enabled = 1      # enable fast_loop at global level: `TasmotaGlobal.fast_loop_enabled = true`
     self._fl.push(cl)
